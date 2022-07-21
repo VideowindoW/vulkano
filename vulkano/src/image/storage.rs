@@ -187,7 +187,7 @@ impl StorageImage {
 	let layout: Vec<SubresourceLayout> = subresource_data.iter_mut().map(|SubresourceData {fd, offset, row_pitch }| {
 	    SubresourceLayout {
             offset: offset.clone(),
-            size: *row_pitch * dimensions.height() as u64,
+            size: 0,
             row_pitch: row_pitch.clone(),
             array_pitch: 0,
             depth_pitch: 0,
@@ -218,7 +218,7 @@ impl StorageImage {
                 cube_compatible: flags.cube_compatible,
                 array_2d_compatible: flags.array_2d_compatible,
                 block_texel_view_compatible: flags.block_texel_view_compatible,
-                tiling: ImageTiling::Linear,
+                tiling: ImageTiling::DrmFormatModifierExt,
                 image_drm_format_modifier_create_info: Some(drm_mod),
                 ..Default::default()
             },

@@ -342,6 +342,7 @@ impl From<ImageType> for ash::vk::ImageType {
 pub enum ImageTiling {
     Optimal = ash::vk::ImageTiling::OPTIMAL.as_raw(),
     Linear = ash::vk::ImageTiling::LINEAR.as_raw(),
+    DrmFormatModifierExt = ash::vk::ImageTiling::DRM_FORMAT_MODIFIER_EXT.as_raw(),
 }
 
 impl From<ImageTiling> for ash::vk::ImageTiling {
