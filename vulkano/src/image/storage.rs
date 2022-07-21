@@ -199,7 +199,7 @@ impl StorageImage {
 	}).collect();
 
         let drm_mod = ImageDrmFormatModifierExplicitCreateInfoEXT::builder()
-            .drm_format_modifier(0)
+            .drm_format_modifier(drm_format_modifier)
             .plane_layouts(layout.as_ref())
             .build();
 
