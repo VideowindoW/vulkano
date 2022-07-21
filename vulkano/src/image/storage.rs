@@ -342,13 +342,13 @@ impl StorageImage {
 pub struct SubresourceData {
 
     // The file descriptor hanfle of a layer of an image.
-    fd: RawFd,
+    pub fd: RawFd,
 
     // The byte offset from the start of the plane where the image subresource begins.
-    offset: u64,
+    pub offset: u64,
 
     //  Describes the number of bytes between each row of texels in an image plane.
-    row_pitch: u64
+    pub row_pitch: u64
 }
 
 unsafe impl<A> DeviceOwned for StorageImage<A>
