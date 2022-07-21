@@ -172,6 +172,7 @@ impl StorageImage {
         flags: ImageCreateFlags,
         queue_families: I,
         mut subresource_data: Vec<SubresourceData>,
+	drm_format_modifier: u64
     ) -> Result<Arc<StorageImage>, ImageCreationError>
     where
         I: IntoIterator<Item = QueueFamily<'a>>,
