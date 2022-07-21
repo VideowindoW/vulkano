@@ -171,7 +171,7 @@ impl StorageImage {
         usage: ImageUsage,
         flags: ImageCreateFlags,
         queue_families: I,
-        subresource_data: Vec<SubresourceData>,
+        mut subresource_data: Vec<SubresourceData>,
     ) -> Result<Arc<StorageImage>, ImageCreationError>
     where
         I: IntoIterator<Item = QueueFamily<'a>>,
