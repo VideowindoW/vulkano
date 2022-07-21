@@ -59,6 +59,7 @@ pub use self::traits::ImageAccess;
 pub use self::traits::ImageInner;
 pub use self::usage::ImageUsage;
 pub use self::view::ImageViewAbstract;
+pub use self::storage::SubresourceData;
 use self::view::ImageViewType;
 use crate::format::Format;
 use crate::memory::ExternalMemoryHandleType;
