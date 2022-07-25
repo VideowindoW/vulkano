@@ -179,6 +179,7 @@ where
                 match image_inner.tiling() {
                     ImageTiling::Optimal => format_properties.optimal_tiling_features,
                     ImageTiling::Linear => format_properties.linear_tiling_features,
+                    ImageTiling::DrmFormatModifierExt => format_properties.linear_tiling_features,
                 }
             } else {
                 *image_inner.format_features()

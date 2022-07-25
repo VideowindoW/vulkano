@@ -222,6 +222,7 @@ impl UnsafeImage {
             match tiling {
                 ImageTiling::Linear => format_properties.linear_tiling_features,
                 ImageTiling::Optimal => format_properties.optimal_tiling_features,
+                ImageTiling::DrmFormatModifierExt => format_properties.linear_tiling_features, // TODO: Fix
             }
         };
 
