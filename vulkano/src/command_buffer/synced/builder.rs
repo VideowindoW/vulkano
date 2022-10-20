@@ -620,8 +620,8 @@ impl SyncCommandBufferBuilder {
 
                                         // A layout transition is a write, so if we perform one, we
                                         // need exclusive access.
-                                        state.memory.exclusive = true; // TODO: is this correct?
-                                        state.exclusive_any = true;
+                                        // state.memory.exclusive = true; // TODO: is this correct?
+                                        // state.exclusive_any = true;
 
                                         // Note that we transition from `bottom_of_pipe`, which
                                         // means that we wait for all the previous commands to be
