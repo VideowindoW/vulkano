@@ -80,6 +80,7 @@ impl DeviceMemory {
             memory_type_index,
             dedicated_allocation: _,
             export_handle_types,
+            import_handle_types: _,
             _ne: _,
         } = allocate_info;
 
@@ -110,6 +111,7 @@ impl DeviceMemory {
             dedicated_allocation: _,
             export_handle_types,
             _ne: _,
+            ..
         } = allocate_info;
 
         DeviceMemory {
@@ -146,6 +148,7 @@ impl DeviceMemory {
             memory_type_index,
             dedicated_allocation: _,
             export_handle_types,
+            import_handle_types: _,
             _ne: _,
         } = allocate_info;
 
@@ -169,6 +172,7 @@ impl DeviceMemory {
             memory_type_index,
             ref mut dedicated_allocation,
             export_handle_types,
+            import_handle_types: _,
             _ne: _,
         } = allocate_info;
 
@@ -392,6 +396,7 @@ impl DeviceMemory {
             memory_type_index,
             dedicated_allocation,
             export_handle_types,
+            import_handle_types: _,
             _ne: _,
         } = allocate_info;
 
@@ -682,7 +687,7 @@ pub struct MemoryAllocateInfo<'d> {
     pub memory_type_index: u32,
 
     /// Allocates memory for a specific buffer or image.
-    ///
+    ///1
     /// This value is silently ignored (treated as `None`) if the device API version is less than
     /// 1.1 and the
     /// [`khr_dedicated_allocation`](crate::device::DeviceExtensions::khr_dedicated_allocation)
@@ -691,6 +696,9 @@ pub struct MemoryAllocateInfo<'d> {
 
     /// The handle types that can be exported from the allocated memory.
     pub export_handle_types: ExternalMemoryHandleTypes,
+
+    /// Handle for importing
+    pub import_handle_types: ExternalMemoryHandleTypes,
 
     pub _ne: crate::NonExhaustive,
 }
@@ -703,6 +711,7 @@ impl Default for MemoryAllocateInfo<'static> {
             memory_type_index: u32::MAX,
             dedicated_allocation: None,
             export_handle_types: ExternalMemoryHandleTypes::empty(),
+            import_handle_types: ExternalMemoryHandleTypes::empty(),
             _ne: crate::NonExhaustive(()),
         }
     }
@@ -717,6 +726,7 @@ impl<'d> MemoryAllocateInfo<'d> {
             memory_type_index: u32::MAX,
             dedicated_allocation: Some(dedicated_allocation),
             export_handle_types: ExternalMemoryHandleTypes::empty(),
+            import_handle_types: ExternalMemoryHandleTypes::empty(),
             _ne: crate::NonExhaustive(()),
         }
     }

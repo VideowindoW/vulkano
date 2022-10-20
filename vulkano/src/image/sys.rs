@@ -34,7 +34,7 @@ use crate::{
     sync::{AccessError, CurrentAccess, Sharing},
     DeviceSize, OomError, RequirementNotMet, RequiresOneOf, Version, VulkanError, VulkanObject,
 };
-use ash::vk::Handle;
+use ash::vk::{Handle, ImageDrmFormatModifierExplicitCreateInfoEXT};
 use parking_lot::{Mutex, MutexGuard};
 use smallvec::{smallvec, SmallVec};
 use std::{
@@ -143,6 +143,7 @@ impl UnsafeImage {
             cube_compatible,
             array_2d_compatible,
             block_texel_view_compatible,
+            image_drm_format_modifier_create_info: _,
             _ne: _,
         } = create_info;
 
@@ -215,6 +216,7 @@ impl UnsafeImage {
             match tiling {
                 ImageTiling::Linear => format_properties.linear_tiling_features,
                 ImageTiling::Optimal => format_properties.optimal_tiling_features,
+                ImageTiling::DrmFormatModifier => format_properties.linear_tiling_features, // TODO: Fix
             }
         };
 
@@ -822,6 +824,7 @@ impl UnsafeImage {
             cube_compatible,
             array_2d_compatible,
             block_texel_view_compatible,
+            mut image_drm_format_modifier_create_info,
             _ne: _,
         } = &create_info;
 
@@ -910,6 +913,13 @@ impl UnsafeImage {
             info_vk.p_next = next as *const _ as *const _;
         }
 
+        if external_memory_handle_types.dma_buf {
+            let next = image_drm_format_modifier_create_info.as_mut().unwrap();
+
+            next.p_next = info_vk.p_next;
+            info_vk.p_next = next as *const _ as *const _;
+        }
+
         let handle = {
             let fns = device.fns();
             let mut output = MaybeUninit::uninit();
@@ -954,6 +964,7 @@ impl UnsafeImage {
             cube_compatible,
             array_2d_compatible,
             block_texel_view_compatible,
+            image_drm_format_modifier_create_info: _,
             _ne: _,
         } = create_info;
 
@@ -973,6 +984,7 @@ impl UnsafeImage {
             match tiling {
                 ImageTiling::Linear => format_properties.linear_tiling_features,
                 ImageTiling::Optimal => format_properties.optimal_tiling_features,
+                ImageTiling::DrmFormatModifier => format_properties.linear_tiling_features,
             }
         };
         let aspects = format.unwrap().aspects();
@@ -1849,6 +1861,8 @@ pub struct UnsafeImageCreateInfo {
     /// The default value is `false`.
     pub block_texel_view_compatible: bool,
 
+    pub image_drm_format_modifier_create_info: Option<ImageDrmFormatModifierExplicitCreateInfoEXT>,
+
     pub _ne: crate::NonExhaustive,
 }
 
@@ -1874,6 +1888,7 @@ impl Default for UnsafeImageCreateInfo {
             cube_compatible: false,
             array_2d_compatible: false,
             block_texel_view_compatible: false,
+            image_drm_format_modifier_create_info: None,
             _ne: crate::NonExhaustive(()),
         }
     }

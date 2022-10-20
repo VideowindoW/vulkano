@@ -23,7 +23,11 @@ use crate::{
     },
     DeviceSize,
 };
-use std::sync::Arc;
+use std::{
+    fs::File,
+    os::unix::prelude::{FromRawFd, IntoRawFd, RawFd},
+    sync::Arc,
+};
 
 mod host_visible;
 mod non_host_visible;
@@ -102,6 +106,62 @@ where
             ..MemoryAllocateInfo::dedicated_allocation(dedicated_allocation)
         },
     )?;
+
+    match map {
+        MappingRequirement::Map => {
+            let mapped_memory = MappedDeviceMemory::new(memory, 0..requirements.size)?;
+            Ok(PotentialDedicatedAllocation::DedicatedMapped(mapped_memory))
+        }
+        MappingRequirement::DoNotMap => Ok(PotentialDedicatedAllocation::Dedicated(memory)),
+    }
+}
+
+/// Import memory from a Vec of file descriptors.
+pub(crate) fn alloc_import_from_fd<F>(
+    device: Arc<Device>,
+    requirements: &MemoryRequirements,
+    _layout: AllocLayout,
+    map: MappingRequirement,
+    dedicated_allocation: DedicatedAllocation<'_>,
+    filter: F,
+    fd: Vec<RawFd>,
+) -> Result<PotentialDedicatedAllocation<StandardMemoryPoolAlloc>, DeviceMemoryError>
+where
+    F: FnMut(&MemoryType) -> AllocFromRequirementsFilter,
+{
+    assert!(device.enabled_extensions().khr_external_memory_fd);
+    assert!(device.enabled_extensions().khr_external_memory);
+    assert!(device.enabled_extensions().ext_external_memory_dma_buf);
+
+    let memory_type_index = choose_allocation_memory_type(&device, requirements, filter, map);
+
+    let memory = unsafe {
+        // Try cloning underlying fd
+        // @TODO: For completeness, importing memory from muliple file descriptors should be added (In order to support importing multiplanar images). As of now, only single planar image importing will work.
+        let file = File::from_raw_fd(*fd.get(0).expect("File descriptor Vec is empty"));
+        let new_file = file.try_clone().expect("Error cloning file descriptor");
+
+        // Turn the original file descriptor back into a raw fd to avoid ownership problems
+        file.into_raw_fd();
+
+        DeviceMemory::import(
+            device.clone(),
+            MemoryAllocateInfo {
+                allocation_size: requirements.size,
+                memory_type_index,
+                export_handle_types: ExternalMemoryHandleTypes::empty(),
+                import_handle_types: ExternalMemoryHandleTypes {
+                    dma_buf: true,
+                    ..ExternalMemoryHandleTypes::empty()
+                },
+                ..MemoryAllocateInfo::dedicated_allocation(dedicated_allocation)
+            },
+            crate::memory::MemoryImportInfo::Fd {
+                handle_type: crate::memory::ExternalMemoryHandleType::DmaBuf,
+                file: new_file,
+            },
+        )
+    }?;
 
     match map {
         MappingRequirement::Map => {

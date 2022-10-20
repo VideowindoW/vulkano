@@ -51,7 +51,7 @@ pub use self::{
     attachment::AttachmentImage,
     immutable::ImmutableImage,
     layout::{ImageDescriptorLayouts, ImageLayout},
-    storage::StorageImage,
+    storage::{StorageImage, SubresourceData},
     swapchain::SwapchainImage,
     sys::ImageCreationError,
     traits::{ImageAccess, ImageInner},
@@ -286,12 +286,12 @@ vulkan_enum! {
     // TODO: document
     Linear = LINEAR,
 
-    /*
+
     // TODO: document
     DrmFormatModifier = DRM_FORMAT_MODIFIER_EXT {
         device_extensions: [ext_image_drm_format_modifier],
     },
-     */
+
 }
 
 /// The dimensions of an image.

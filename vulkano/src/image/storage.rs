@@ -14,11 +14,12 @@ use super::{
 use crate::{
     device::{Device, DeviceOwned, Queue},
     format::Format,
-    image::{sys::UnsafeImageCreateInfo, view::ImageView},
+    image::{sys::UnsafeImageCreateInfo, view::ImageView, ImageTiling},
     memory::{
         pool::{
-            alloc_dedicated_with_exportable_fd, AllocFromRequirementsFilter, AllocLayout,
-            MappingRequirement, MemoryPoolAlloc, PotentialDedicatedAllocation, StandardMemoryPool,
+            alloc_dedicated_with_exportable_fd, alloc_import_from_fd, AllocFromRequirementsFilter,
+            AllocLayout, MappingRequirement, MemoryPoolAlloc, PotentialDedicatedAllocation,
+            StandardMemoryPool,
         },
         DedicatedAllocation, DeviceMemoryError, ExternalMemoryHandleType,
         ExternalMemoryHandleTypes, MemoryPool,
@@ -26,10 +27,12 @@ use crate::{
     sync::Sharing,
     DeviceSize,
 };
+use ash::vk::{ImageDrmFormatModifierExplicitCreateInfoEXT, SubresourceLayout};
 use smallvec::SmallVec;
 use std::{
     fs::File,
     hash::{Hash, Hasher},
+    os::unix::prelude::RawFd,
     sync::Arc,
 };
 
@@ -132,6 +135,114 @@ impl StorageImage {
                 }
             },
         )?;
+        debug_assert!((memory.offset() % mem_reqs.alignment) == 0);
+        unsafe {
+            image.bind_memory(memory.memory(), memory.offset())?;
+        }
+
+        Ok(Arc::new(StorageImage {
+            image,
+            memory,
+            dimensions,
+        }))
+    }
+
+    /// Creates a new image from a set of dma_buf file descriptors. The memory will be imported from the file desciptors, and will be bound to the image.
+    /// # Arguments
+    /// * `fds` - The list of file descriptors to import from. Single planar images should only use one, and multiplanar images can use multiple, for example, for each color.
+    /// * `offset` - The byte offset from the start of the image of the plane where the image subresource begins.
+    /// * `pitch` - Describes the number of bytes between each row of texels in an image.
+    pub fn new_from_dma_buf_fd(
+        device: Arc<Device>,
+        dimensions: ImageDimensions,
+        format: Format,
+        usage: ImageUsage,
+        flags: ImageCreateFlags,
+        queue_family_indices: impl IntoIterator<Item = u32>,
+        mut subresource_data: Vec<SubresourceData>,
+        drm_format_modifier: u64,
+    ) -> Result<Arc<StorageImage>, ImageCreationError> {
+        let queue_family_indices: SmallVec<[_; 4]> = queue_family_indices.into_iter().collect();
+
+        // Create a vector of the layout of each image plane.
+        let layout: Vec<SubresourceLayout> = subresource_data
+            .iter_mut()
+            .map(
+                |SubresourceData {
+                     fd: _,
+                     offset,
+                     row_pitch,
+                 }| {
+                    SubresourceLayout {
+                        offset: offset.clone(),
+                        size: 0,
+                        row_pitch: row_pitch.clone(),
+                        array_pitch: 0,
+                        depth_pitch: 0,
+                    }
+                },
+            )
+            .collect();
+
+        let fds: Vec<RawFd> = subresource_data
+            .iter_mut()
+            .map(
+                |SubresourceData {
+                     fd,
+                     offset: _,
+                     row_pitch: _,
+                 }| { *fd },
+            )
+            .collect();
+
+        let drm_mod = ImageDrmFormatModifierExplicitCreateInfoEXT::builder()
+            .drm_format_modifier(drm_format_modifier)
+            .plane_layouts(layout.as_ref())
+            .build();
+
+        let image = UnsafeImage::new(
+            device.clone(),
+            UnsafeImageCreateInfo {
+                dimensions,
+                format: Some(format),
+                usage,
+                sharing: if queue_family_indices.len() >= 2 {
+                    Sharing::Concurrent(queue_family_indices)
+                } else {
+                    Sharing::Exclusive
+                },
+                external_memory_handle_types: ExternalMemoryHandleTypes {
+                    dma_buf: true,
+                    ..ExternalMemoryHandleTypes::empty()
+                },
+                mutable_format: flags.mutable_format,
+                cube_compatible: flags.cube_compatible,
+                array_2d_compatible: flags.array_2d_compatible,
+                block_texel_view_compatible: flags.block_texel_view_compatible,
+                tiling: ImageTiling::DrmFormatModifier,
+                image_drm_format_modifier_create_info: Some(drm_mod),
+                ..Default::default()
+            },
+        )?;
+
+        let mem_reqs = image.memory_requirements();
+
+        let memory = alloc_import_from_fd(
+            device.clone(),
+            &mem_reqs,
+            AllocLayout::Linear,
+            MappingRequirement::DoNotMap,
+            DedicatedAllocation::Image(&image),
+            |t| {
+                if t.property_flags.device_local {
+                    AllocFromRequirementsFilter::Preferred
+                } else {
+                    AllocFromRequirementsFilter::Allowed
+                }
+            },
+            fds,
+        )?;
+
         debug_assert!((memory.offset() % mem_reqs.alignment) == 0);
         unsafe {
             image.bind_memory(memory.memory(), memory.offset())?;
@@ -253,6 +364,18 @@ impl StorageImage {
     pub fn mem_size(&self) -> DeviceSize {
         self.memory.memory().allocation_size()
     }
+}
+
+/// Struct that contains the a file descriptor to import, when creating an image. Since a file descriptor is used for each plane in the case of multiplanar images, each fd needs to have an offset and a row pitch in order to interpret the imported data.
+pub struct SubresourceData {
+    // The file descriptor hanfle of a layer of an image.
+    pub fd: RawFd,
+
+    // The byte offset from the start of the plane where the image subresource begins.
+    pub offset: u64,
+
+    //  Describes the number of bytes between each row of texels in an image plane.
+    pub row_pitch: u64,
 }
 
 unsafe impl<A> DeviceOwned for StorageImage<A>
