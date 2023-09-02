@@ -725,7 +725,14 @@ where
 
             match image.tiling() {
                 ImageTiling::Optimal => format_properties.optimal_tiling_features,
-                ImageTiling::Linear => format_properties.linear_tiling_features,
+                ImageTiling::Linear => {
+                    format_properties.linear_tiling_features
+                        | if device.enabled_extensions().nv_linear_color_attachment {
+                            FormatFeatures::COLOR_ATTACHMENT
+                        } else {
+                            FormatFeatures::empty()
+                        }
+                }
                 ImageTiling::DrmFormatModifier => format_properties.linear_tiling_features,
             }
         } else {

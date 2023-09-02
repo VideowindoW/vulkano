@@ -22,7 +22,7 @@ use crate::{
     buffer::subbuffer::{ReadLockError, WriteLockError},
     cache::OnceCache,
     device::{Device, DeviceOwned},
-    format::{ChromaSampling, Format, FormatFeatures, NumericType},
+    format::{ChromaSampling, Format, FormatFeatures, FormatProperties, NumericType},
     image::{
         view::ImageViewCreationError, ImageFormatInfo, ImageFormatProperties, ImageType,
         SparseImageFormatProperties,
@@ -214,7 +214,14 @@ impl RawImage {
             // Use unchecked, because all validation has been done above.
             let format_properties = unsafe { physical_device.format_properties_unchecked(format) };
             match tiling {
-                ImageTiling::Linear => format_properties.linear_tiling_features,
+                ImageTiling::Linear => {
+                    format_properties.linear_tiling_features
+                        | if device.enabled_extensions().nv_linear_color_attachment {
+                            FormatFeatures::COLOR_ATTACHMENT
+                        } else {
+                            FormatFeatures::empty()
+                        }
+                }
                 ImageTiling::Optimal => format_properties.optimal_tiling_features,
                 ImageTiling::DrmFormatModifier => format_properties.linear_tiling_features, // TODO: improve
             }
@@ -1031,7 +1038,14 @@ impl RawImage {
                 .physical_device()
                 .format_properties_unchecked(format.unwrap());
             match tiling {
-                ImageTiling::Linear => format_properties.linear_tiling_features,
+                ImageTiling::Linear => {
+                    format_properties.linear_tiling_features
+                        | if device.enabled_extensions().nv_linear_color_attachment {
+                            FormatFeatures::COLOR_ATTACHMENT
+                        } else {
+                            FormatFeatures::empty()
+                        }
+                }
                 ImageTiling::Optimal => format_properties.optimal_tiling_features,
                 ImageTiling::DrmFormatModifier => format_properties.linear_tiling_features, // TODO: improve
             }
